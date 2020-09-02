@@ -1,11 +1,34 @@
 # SPDX-License-Identifier: CC0-1.0
 
+need := 3.81
+ok := $(filter $(need),$(firstword $(sort $(MAKE_VERSION) $(need))))
+ifndef ok
+	$(error Need GNU make at least v3.81)
+endif
+
+assert-command-present = $(if $(shell which $1),,$(error '$1' missing and needed for this build))
+$(call assert-command-present,curl)
+$(call assert-command-present,gpg)
+$(call assert-command-present,git)
+$(call assert-command-present,java)
+$(call assert-command-present,md5sum)
+
+
+add_checksum_files = $1 $(addsuffix .md5,$1)
+
+
+INPUT_DIR = ../src
+ALL_LICENSES = $(wildcard $(INPUT_DIR)/*.txt)
+ALL_EXCEPTIONS = $(wildcard $(INPUT_DIR)/exceptions/*.txt)
+ALL_INPUTS = $(ALL_LICENSES) $(ALL_EXCEPTIONS)
+
 TOOL_VERSION = 2.1.22
+
 TEST_DATA = test/simpleTestForGenerator
 GIT_AUTHOR = License Publisher (maintained by Gary O'Neall) <gary@sourceauditor.com>
 LICENSE_DATA_REPO_NO_SCHEME = github.com/spdx/license-list-data.git
-LICENSE_DATA_REPO = https://$(LICENSE_DATA_REPO_NO_SCHEME)
 LICENSE_DATA_URL = https://$(GITHUB_TOKEN)@$(LICENSE_DATA_REPO_NO_SCHEME)
+
 LICENSE_OUTPUT_DIR = .tmp
 GITVERSION = $(shell git describe --always || echo 'UNKNOWN')
 # Remove leading 'v' or 'V'
@@ -54,8 +77,12 @@ resources:
 
 .PHONY: clean
 clean:
-	rm -rf $(LICENSE_OUTPUT_DIR)
+	$(RM) -r $(LICENSE_OUTPUT_DIR)
 
-.PHONY: full-clean
-full-clean: clean
-	rm -rf resources licenseListPublisher-*.jar*
+.PHONY: clobber full-clean
+clobber full-clean: clean
+	$(RM) -r resources licenseListPublisher-*.jar*
+
+%.md5: FORCE
+	 @$(eval CHECKSUM := $(shell md5sum $*))$(if $(filter-out $(shell cat $@ 2>/dev/null),$(CHECKSUM)),echo $(CHECKSUM) > $@)
+
